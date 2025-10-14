@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-birchwood-green text-white font-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-serif tracking-wide;
+}
+
+.chinese {
+  font-family: 'Noto Serif SC', serif;
+}
