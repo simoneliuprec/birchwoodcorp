@@ -2,21 +2,18 @@
 module.exports = {
   content: [
     "./pages/**/*.{js,ts,jsx,tsx}",
-    "./components/**/*.{js,ts,jsx,tsx}"
+    "./components/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
       colors: {
-        birchwood: {
-          green: "#22322A",
-          gold: "#B3A287"
-        }
+        'birchwood-green': '#314D40',  // Use your actual hex code
+        'birchwood-gold': '#D4AF37',   // Use your actual hex code
       },
       fontFamily: {
-        serif: ['Cinzel', 'serif'],
-        chinese: ['Noto Serif SC', 'serif']
+        serif: ['Georgia', 'Cambria', 'Times New Roman', 'serif'],
       }
-    }
+    },
   },
-  plugins: []
+  plugins: [],
 }
