@@ -7,11 +7,15 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        'birchwood-green': '#314D40',  // Use your actual hex code
-        'birchwood-gold': '#D4AF37',   // Use your actual hex code
+        'birchwood-green': '#314D40',
+        'birchwood-gold': '#D4AF37',
+        'rich-black': '#16181A',
+        'light-gray': '#F7F7FA',
+        'medium-gray': '#6B7280'
       },
       fontFamily: {
-        serif: ['Georgia', 'Cambria', 'Times New Roman', 'serif'],
+        serif: ['"Playfair Display"', 'serif'],
+        sans: ['Poppins', 'sans-serif'],
       }
     },
   },
