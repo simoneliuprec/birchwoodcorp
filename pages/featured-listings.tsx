@@ -1,3 +1,8 @@
+import type {
+  GetServerSideProps,
+  GetServerSidePropsContext
+} from 'next';
+import Head from 'next/head';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import FeaturedListings from '../components/FeaturedListings';
 
@@ -9,10 +14,14 @@ export default function FeaturedListingsPage() {
   );
 }
 
-export async function getServerSideProps({ locale }) {
+export const getServerSideProps: GetServerSideProps = async (
+  context: GetServerSidePropsContext
+) => {
+  const { locale } = context; // locale is string | undefined
+
   return {
     props: {
-      ...(await serverSideTranslations(locale, ['common'])),
+      ...(await serverSideTranslations(locale ?? 'en', ['common'])),
     },
   };
-}
+};
