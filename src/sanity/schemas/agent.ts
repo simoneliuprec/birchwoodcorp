@@ -1,16 +1,16 @@
-// Sanity v2 - Agent schematype
-export default {
+import { defineType, defineField } from 'sanity';
+
+const agent = defineType({
   name: 'agent',
   title: 'Agent',
   type: 'document',
   fields: [
-    { name: 'name', type: 'string', title: 'Name' },
-    { name: 'bio', type: 'text', title: 'Bio' },
-    { name: 'photo', type: 'image', title: 'Photo', options: { hotspot: true } },
-    { name: 'email', type: 'string', title: 'Email' },
-    { name: 'phone', type: 'string', title: 'Phone' }
+    defineField({ name: 'name', type: 'string', title: 'Name' }),
+    defineField({ name: 'email', type: 'string', title: 'Bio' }),
+    defineField({ name: 'phone', type: 'string', title: 'Phone' }),
+    defineField({ name: 'photo', type: 'image', title: 'Photo', options: { hotspot: true }}),
+    defineField({ name: 'email', type: 'string', title: 'Email'})
   ],
-  preview: {
-    select: { title: 'name', media: 'photo' }
-  }
-};
+});
+
+export default agent;
