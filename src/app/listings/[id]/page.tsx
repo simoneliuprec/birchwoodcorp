@@ -5,7 +5,7 @@ import { supabaseAnon } from '@/lib/supabase';
 import { TAGS, REVALIDATE_SECONDS } from '@/lib/caching';
 import type { DbListing } from '@/lib/types';
 
-export const revalidate = REVALIDATE_SECONDS;
+export const revalidate = 300;
 export const dynamic = 'force-static';
 
 // --- data fetchers ---

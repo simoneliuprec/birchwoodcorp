@@ -237,8 +237,7 @@ async function fetchMediaForListings(props: any[]) {
 }
 
 /* ------------------------ POST: /api/sync ------------------------ */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function POST(_req: Request) {
+export async function POST(req: Request) {
   if (ENFORCE_CRON_AUTH) {
     const bearer = req.headers.get('authorization');
     const xcron = req.headers.get('x-cron-secret');
@@ -393,8 +392,7 @@ export async function POST(_req: Request) {
 }
 
 /* ------------------------ GET: quick health ------------------------ */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function GET(_req: Request) {
+export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const sb = supabaseAnon();
 

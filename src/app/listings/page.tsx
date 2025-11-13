@@ -8,7 +8,7 @@ import Pagination from './components/Pagination';
 import { toTemplateProperty } from '@/components/realestate/adapters';
 import PropertyCardAdapter from '@/components/realestate/PropertyCardAdapter';
 
-export const revalidate = REVALIDATE_SECONDS;
+export const revalidate = 300;
 
 type SearchParams = {
   city?: string;
