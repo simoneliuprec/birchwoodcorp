@@ -19,7 +19,11 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "allowJs": true,
-    "plugins": [{ "name": "next" }]
+    "plugins": [{ "name": "next" }],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
   "include": [
     "next-env.d.ts",

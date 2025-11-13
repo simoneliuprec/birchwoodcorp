@@ -3,11 +3,15 @@
 @tailwind utilities;
 
 body {
-  @apply bg-birchwood-green text-white font-serif;
+  @apply bg-gray-light text-rich-black;
+}
+
+a {
+  @apply text-birchwood-green hover:text-birchwood-gold transition-colors;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  @apply font-serif tracking-wide;
+  @apply text-rich-black font-semibold;
 }
 
 .chinese {

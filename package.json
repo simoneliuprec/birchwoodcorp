@@ -13,6 +13,7 @@
     "@sanity/client": "^6.29.1",
     "@sanity/image-url": "^1.2.0",
     "@sanity/vision": "^4.10.3",
+    "@supabase/supabase-js": "^2.75.0",
     "groq": "^3.99.0",
     "i18next": "^25.6.0",
     "next": "15.5.5",

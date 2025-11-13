@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../next-i18next.config.js';
 import type { GetServerSideProps, GetServerSidePropsContext } from 'next';
@@ -9,13 +8,6 @@ import Gallery from "../components/Gallery";
 import Testimonials from "../components/Testimonials";
 import BookMeeting from "../components/BookMeeting";
 import Footer from "../components/Footer";
-
-const navLinks = [
-  { name: "Landing", href: "#" },
-  { name: "Pages", href: "#" },
-  { name: "Contact", href: "#" },
-  { name: "About", href: "#" },
-];
 
 export default function Home() {
   return (
