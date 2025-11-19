@@ -26,33 +26,6 @@ function encodeInList(values: string[]) {
   return `(${quoted})`;
 }
 
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-/* ------------------------ Property Select ------------------------ */
-/** Use only fields you actually observed in your feed (from your sample). */
-const PROPERTY_SELECT_FIELDS = [
-  'ListingKey',
-  'ListingId',
-  'ListPrice',
-  'PropertySubType',
-  'BedroomsTotal',
-  'BathroomsTotalInteger',   // swap to BathroomsTotal if needed
-  'UnparsedAddress',
-  'StreetNumber',
-  'StreetName',
-  'City',
-  'StateOrProvince',
-  'PostalCode',
-  'Latitude',
-  'Longitude',
-  'StandardStatus',
-  'OriginalEntryTimestamp',
-  'StatusChangeTimestamp',
-  'ModificationTimestamp',
-];
-
 /* ------------------------ (Optional) Initial full page crawler ------------------------
    Kept for reference; current init uses Replication -> details path.
 */
@@ -140,7 +113,8 @@ async function fetchPropertiesByKeys(keys: string[]) {
     const url = new URL(`${BASE}/Property`);
     const inList = encodeInList(part);
     url.searchParams.set('$filter', `ListingKey in ${inList}`);
-    url.searchParams.set('$select', PROPERTY_SELECT_FIELDS.join(','));
+    // url.searchParams.set('$select', PROPERTY_SELECT_FIELDS.join(','));
+    // url.searchParams.set('$expand', 'Media');
     url.searchParams.set('$top', String(PAGE_TOP)); // okay on /Property
     url.searchParams.set('$orderby', 'ModificationTimestamp desc');
 
@@ -153,6 +127,24 @@ async function fetchPropertiesByKeys(keys: string[]) {
     all.push(...(json.value ?? []));
   }
   return all;
+}
+
+/** Fetch a single property by ListingKey using /Property('key') */
+async function fetchPropertyByKey(listingKey: string) {
+  const token = await getDdfAccessToken();
+  const url = `${BASE}/Property('${listingKey.replace(/'/g, "''")}')`;
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`DDF property-by-key ${res.status}: ${await res.text()}`);
+  }
+
+  const json: any = await res.json();
+  return json;
 }
 
 /* ------------------------ Media (resilient dual strategy) ------------------------ */
@@ -241,153 +233,342 @@ export async function POST(req: Request) {
   if (ENFORCE_CRON_AUTH) {
     const bearer = req.headers.get('authorization');
     const xcron = req.headers.get('x-cron-secret');
-    const ok = bearer === `Bearer ${CRON_SECRET}` || (!!xcron && xcron === CRON_SECRET);
-    if (!ok) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    const ok =
+      bearer === `Bearer ${CRON_SECRET}` ||
+      (!!xcron && xcron === CRON_SECRET);
+    if (!ok) {
+      return NextResponse.json(
+        { ok: false, error: 'unauthorized' },
+        { status: 401 }
+      );
+    }
   }
 
   const { searchParams } = new URL(req.url);
-  const mode = (searchParams.get('mode') ?? 'delta').toLowerCase(); // init | delta | master
-  const since = searchParams.get('since'); // ISO string (only used in delta)
+  const mode = (searchParams.get('mode') ?? 'delta').toLowerCase(); // init | delta | master | single
+  const since = searchParams.get('since'); // ISO string, used in delta
+  const singleKey = searchParams.get('key'); // for mode=single
+  const max = Number(searchParams.get('max') ?? '50'); // used in init
 
-  // DEBUG
+  // ---------------- DEBUG probe ----------------
   if (searchParams.get('debug') === '1') {
-  try {
+    try {
       const token = await getDdfAccessToken();
-      // probe first replication *page only*
       const probeUrl = new URL(`${BASE}/Property/PropertyReplication`);
-      // keep it tiny; no $top on replication
       const res = await fetch(probeUrl.toString(), {
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
         cache: 'no-store',
       });
       const text = await res.text();
-      // don’t parse large JSON—just return status + a small slice
       return NextResponse.json({
         ok: res.ok,
         status: res.status,
         bytes: text.length,
-        preview: text.slice(0, 500), // first 500 chars so we know it’s alive
+        preview: text.slice(0, 500),
       });
     } catch (e: any) {
-      return NextResponse.json({ ok: false, error: String(e?.message ?? e) }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: String(e?.message ?? e) },
+        { status: 500 }
+      );
     }
   }
 
   try {
     const sb = supabaseService();
     const changedIds: string[] = [];
-    let pages = 0;
 
+    // current sync state row (may or may not exist yet)
+    const stateRes = await sb
+      .from('ddf_sync_state')
+      .select('*')
+      .eq('id', 'property')
+      .maybeSingle();
+
+    if (stateRes.error) throw stateRes.error;
+    const syncState = stateRes.data ?? null;
+
+    /* ------------------------ MASTER ------------------------ */
     if (mode === 'master') {
-      // full master list (active keys), then reconcile deletions
-      const master = await fetchReplicationSince(null, 'ModificationTimestamp desc'); // all pages
-      const activeKeys = new Set(master.map(x => String(x.ListingKey)));
+      // full master list of keys (all pages), then reconcile deletions
+      const master = await fetchReplicationSince(null, 'ModificationTimestamp desc');
+      const activeKeys = new Set(master.map((x) => String(x.ListingKey)));
 
-      // Soft-unpublish any rows not in activeKeys
+      // Soft-unpublish any rows whose listing_key is NOT in activeKeys
       const { data: staleRows, error: staleErr } = await sb
         .from('listings')
         .select('id, listing_key');
+
       if (staleErr) throw staleErr;
 
       const toUnpublish = (staleRows ?? [])
-        .filter(r => !activeKeys.has(String(r.listing_key)))
-        .map(r => r.id);
+        .filter((r) => !activeKeys.has(String(r.listing_key)))
+        .map((r) => r.id);
+
       if (toUnpublish.length) {
         const { error } = await sb
           .from('listings')
           .update({ is_published: false, listing_status: 'Expired' })
           .in('id', toUnpublish);
+
         if (error) throw error;
       }
 
+      // update sync state
+      await sb
+        .from('ddf_sync_state')
+        .upsert({
+          id: 'property',
+          last_master_at: new Date().toISOString(),
+        });
+
       revalidateTag(TAGS.LISTINGS_INDEX);
-      return NextResponse.json({ ok: true, mode, removed: toUnpublish.length });
+      return NextResponse.json({
+        ok: true,
+        mode,
+        removed: toUnpublish.length,
+      });
     }
 
-    if (mode === 'init') {
-      // 1) Get full master list of keys (paged)
-      const master = await fetchReplicationSince(null, 'ModificationTimestamp desc');
-      const keys = [...new Set(master.map(x => String(x.ListingKey)))];
-      if (!keys.length) {
-        revalidateTag(TAGS.LISTINGS_INDEX);
-        return NextResponse.json({ ok: true, mode, pages: 0, changed: 0, message: 'No records in master' });
+    /* ------------------------ SINGLE ------------------------ */
+    if (mode === 'single') {
+      if (!singleKey) {
+        return NextResponse.json(
+          { ok: false, error: 'missing key param for mode=single' },
+          { status: 400 }
+        );
       }
 
-      // 2) Fetch details in batches
-      const details: any[] = [];
-      for (const part of chunk(keys, 60)) {
-        const partProps = await fetchPropertiesByKeys(part);
-        details.push(...partProps);
-        pages++;
-        await sleep(80);
+      // 1) Fetch single property details (includes inline Media)
+      const property = await fetchPropertyByKey(singleKey);
+      if (!property || !property.ListingKey) {
+        return NextResponse.json(
+          { ok: false, error: 'property not found for given key' },
+          { status: 404 }
+        );
       }
 
-      // 3) Fetch media (resilient)
+      // 2) Fetch media for this property as a fallback (in case some boards don't inline Media)
+      const details = [property];
       const mediaByKey = await fetchMediaForListings(details);
+      const inline = Array.isArray(property.Media) ? property.Media : [];
+      const external = mediaByKey.get(String(property.ListingKey)) ?? [];
+      const media = inline.length ? inline : external;
 
-      // 4) Map & upsert — prefer inline media
+      // 3) Map & upsert
+      const row = mapToRow(property, media);
+      if (!row?.mls_number) {
+        return NextResponse.json(
+          { ok: false, error: 'mapped row is missing mls_number' },
+          { status: 400 }
+        );
+      }
+
+      const { data, error } = await sb
+        .from('listings')
+        .upsert(row, { onConflict: 'mls_number' })
+        .select('id');
+
+      if (error) throw error;
+      const changedId = data?.[0]?.id ?? null;
+
+      revalidateTag(TAGS.LISTINGS_INDEX);
+      return NextResponse.json({
+        ok: true,
+        mode,
+        changed: changedId ? 1 : 0,
+        id: changedId,
+      });
+    }
+
+    /* ------------------------ INIT (simple dev-friendly) ------------------------ */
+    if (mode === 'init') {
+      const safeMax = Math.max(1, Math.min(max, 100)); // /Property $top limit is 100
+      console.log('[sync:init] starting simple init', { max: safeMax });
+
+      // 1) Directly fetch latest `safeMax` properties with full payload (including Media)
+      const token = await getDdfAccessToken();
+      const url = new URL(`${BASE}/Property`);
+      url.searchParams.set('$top', String(safeMax));
+      url.searchParams.set('$orderby', 'ModificationTimestamp desc');
+      // IMPORTANT: no $select, no $expand so we get full objects + inline Media
+
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+        cache: 'no-store',
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(
+          `DDF initial Property fetch ${res.status}: ${text}`
+        );
+      }
+
+      const json: any = await res.json();
+      const details: any[] = json.value ?? [];
+      console.log('[sync:init] fetched properties from DDF', details.length);
+
+      if (!details.length) {
+        revalidateTag(TAGS.LISTINGS_INDEX);
+        return NextResponse.json({
+          ok: true,
+          mode,
+          changed: 0,
+          message: 'No properties returned from /Property',
+        });
+      }
+
+      // 2) Map & upsert using inline Media
       const rows = details
-        .map((p) => {
-          const inline = Array.isArray(p.Media) ? p.Media : [];
-          const external = mediaByKey.get(String(p.ListingKey)) ?? [];
-          const media = inline.length ? inline : external;
-          return mapToRow(p, media);
+        .map((p: any) => {
+          const inlineMedia = Array.isArray(p.Media) ? p.Media : [];
+          return mapToRow(p, inlineMedia);
         })
         .filter((r) => !!r?.mls_number);
+
+      console.log('[sync:init] rows to upsert', rows.length);
 
       if (rows.length) {
         const { data, error } = await sb
           .from('listings')
           .upsert(rows, { onConflict: 'mls_number' })
           .select('id');
+
         if (error) throw error;
         (data ?? []).forEach((x: any) => changedIds.push(x.id));
+
+        // store latest ModificationTimestamp into sync state
+        const newestMod =
+          details
+            .map(
+              (p: any) =>
+                (p.ModificationTimestamp as string | null | undefined) ?? null
+            )
+            .filter((v): v is string => !!v)
+            .sort()
+            .at(-1) ?? null;
+
+        if (newestMod) {
+          await sb
+            .from('ddf_sync_state')
+            .upsert({
+              id: 'property',
+              last_init_at: new Date().toISOString(),
+              last_delta_at: new Date().toISOString(),
+              last_successful_modification: newestMod,
+            });
+        }
       }
 
       revalidateTag(TAGS.LISTINGS_INDEX);
       return NextResponse.json({
         ok: true,
         mode,
-        pages,               // number of detail batches
         changed: rows.length,
       });
     }
 
-    // default: delta
-    const sinceIso = since || new Date(Date.now() - 48 * 3600 * 1000).toISOString();
-    const repl = await fetchReplicationSince(sinceIso, 'ModificationTimestamp desc');
-    const keys = [...new Set(repl.map(r => String(r.ListingKey)))];
-    if (!keys.length) {
-      revalidateTag(TAGS.LISTINGS_INDEX);
-      return NextResponse.json({ ok: true, mode, pages: 0, changed: 0, message: 'No recent updates' });
+    /* ------------------------ DELTA (default) ------------------------ */
+    let sinceIso = since;
+    let usedFallback = false;
+
+    if (!sinceIso) {
+      if (syncState?.last_successful_modification) {
+        // resume from last successful mod time
+        sinceIso = syncState.last_successful_modification;
+      } else {
+        // safety fallback if init never ran: go back 7 days
+        sinceIso = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+        usedFallback = true;
+      }
     }
 
-    // details for keys
+    const repl = await fetchReplicationSince(
+      sinceIso,
+      'ModificationTimestamp desc'
+    );
+    const keys = [...new Set(repl.map((r) => String(r.ListingKey)))];
+
+    if (!keys.length) {
+      // no changes since sinceIso
+      if (!usedFallback && syncState?.last_successful_modification) {
+        await sb
+          .from('ddf_sync_state')
+          .upsert({
+            id: 'property',
+            last_delta_at: new Date().toISOString(),
+          });
+      }
+
+      revalidateTag(TAGS.LISTINGS_INDEX);
+      return NextResponse.json({
+        ok: true,
+        mode,
+        changed: 0,
+        since: sinceIso,
+        message: 'No recent updates',
+      });
+    }
+
+    // Fetch details for those keys
     const details = await fetchPropertiesByKeys(keys);
-    // media for details
+    // Fetch media for them
     const mediaByKey = await fetchMediaForListings(details);
 
-    const rows = details.map(p => {
-      const inline = Array.isArray(p.Media) ? p.Media : [];
-      const external = mediaByKey.get(String(p.ListingKey)) ?? [];
-      const media = inline.length ? inline : external;
-      return mapToRow(p, media);
-    }).filter(r => !!r?.mls_number);
+    const rows = details
+      .map((p: any) => {
+        const inline = Array.isArray(p.Media) ? p.Media : [];
+        const external = mediaByKey.get(String(p.ListingKey)) ?? [];
+        const media = inline.length ? inline : external;
+        return mapToRow(p, media);
+      })
+      .filter((r) => !!r?.mls_number);
 
     if (rows.length) {
       const { data, error } = await sb
         .from('listings')
         .upsert(rows, { onConflict: 'mls_number' })
         .select('id');
+
       if (error) throw error;
       (data ?? []).forEach((x: any) => changedIds.push(x.id));
+
+      // newest ModificationTimestamp from details
+      const newestMod =
+        details
+          .map(
+            (p: any) =>
+              (p.ModificationTimestamp as string | null | undefined) ?? null
+          )
+          .filter((v): v is string => !!v)
+          .sort()
+          .at(-1) ?? null;
+
+      if (newestMod) {
+        await sb
+          .from('ddf_sync_state')
+          .upsert({
+            id: 'property',
+            last_delta_at: new Date().toISOString(),
+            last_successful_modification: newestMod,
+          });
+      }
     }
 
     revalidateTag(TAGS.LISTINGS_INDEX);
-    return NextResponse.json({ ok: true, mode, pages: 1, changed: changedIds.length, since: sinceIso });
+    return NextResponse.json({
+      ok: true,
+      mode,
+      changed: changedIds.length,
+      since: sinceIso,
+    });
   } catch (e: any) {
     console.error(e);
-    return NextResponse.json({ ok: false, error: e?.message ?? 'sync failed' }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: e?.message ?? 'sync failed' },
+      { status: 500 }
+    );
   }
 }
 

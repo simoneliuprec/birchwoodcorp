@@ -82,7 +82,7 @@ export async function fetchListings(filters: ListingFilters) {
   const { data, error, count } = await query.range(from, to);
   if (error) throw error;
 
-  const rows = (data ?? []) as DbListing[];
+  const rows = (data ?? []) as unknown as DbListing[];
   const total = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 

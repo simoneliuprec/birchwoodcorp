@@ -7,12 +7,10 @@ const nextConfig = {
   images: {
     remotePatterns: [
       // Realtor.ca CDN (general)
-      { protocol: 'https', hostname: 'realtor.ca' },
+      { protocol: 'https', hostname: 'realtor.ca', pathname: '/**' },
       // Add common subdomains for MLS photo sources:
-      { protocol: 'https', hostname: 'ddfcdn.realtor.ca' }, // <—
-      { protocol: 'https', hostname: 'cdn.realtor.ca' },
-      { protocol: 'https', hostname: 'media.realtor.ca' },
-      { protocol: 'https', hostname: 'ap.rdcpix.com' },
+      { protocol: 'https', hostname: 'ddfcdn.realtor.ca', pathname: '/**' }, // <—
+      { protocol: 'https', hostname: 'cdn.realtor.ca', pathname: '/**' },
     ],
   },
   // Optional: helpful dev settings

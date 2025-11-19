@@ -1,3 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json }
+  | Json[];
+
 export type Address = {
   streetNumber?: string | null;
   streetName?: string | null;
@@ -15,52 +25,35 @@ export type Dimensions = {
 };
 
 export type DbListing = {
-  id: string;                       // uuid
+  id: string;
   mls_number: string | null;
-  listing_status: string | null;    // e.g., "Active", "Sold", "Pending"
-  property_type: string | null;     // house/condo/townhouse...
-  list_price: number | null;        // numeric
-  original_price: number | null;
-  sale_price: number | null;
-  currency: string | null;          // 'CAD' by default
-  list_date: string | null;         // timestamptz
-  update_date: string | null;       // timestamptz (upstream)
-  days_on_market: number | null;
-  address: Address | null;          // jsonb
-  municipality: string | null;      // STORED from address
-  province: string | null;          // STORED
-  postal_code: string | null;       // STORED
-  latitude: number | null;          // STORED from address.geo.lat
-  longitude: number | null;         // STORED from address.geo.lng
-  bedrooms: number | null;          // integer
-  bathrooms: number | null;         // numeric
-  bathrooms_partial: number | null; // integer
-  total_rooms: number | null;
-  stories: number | null;
-  building_age: number | null;
-  building_type: string | null;
-  parking_type: string | null;
-  parking_spaces: number | null;
-  heating: string | null;
-  cooling: string | null;
-  basement: string | null;
-  dimensions: Dimensions | null;    // jsonb
-  area_sqft: number | null;         // STORED from dimensions.sqft
-  media_urls: string[] | null;
+  listing_key: string | null;
+
+  property_type: string | null;
+  property_subtype: string | null;
+  list_price: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+
+  municipality: string | null;
+  province: string | null;
+  postal_code: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+
+  living_area: number | null;
+  photos_count: number | null;
+
   main_image_url: string | null;
-  gallery_urls: string[] | null;
-  virtual_tour_url: string | null;
+  photo_urls: string[] | null;
+
   public_remarks: string | null;
-  private_notes: string | null;
-  listing_agent_id: string | null;
-  cooperating_broker: string | null;
-  amenities: string[] | null;
-  keywords: string[] | null;
-  source: string | null;
-  status_updated_at: string | null;
-  public_url: string | null;
-  raw_payload: Record<string, unknown> | null;
-  is_published: boolean | null;
-  created_at: string | null;
+  listing_status: string | null;
+  listed_at: string | null;
   updated_at: string | null;
+
+  is_published: boolean;
+  raw?: Json | null;
+  raw_media?: Json | null;
 };

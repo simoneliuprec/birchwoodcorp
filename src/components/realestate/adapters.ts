@@ -3,48 +3,56 @@ import type { DbListing } from '@/lib/types';
 export type TemplateProperty = {
   id: string;
   href: string;
-  title: string;          // e.g., "Vancouver – Condo"
-  subtitle?: string;      // optional small line
-  priceText: string;      // formatted price
-  meta: string;           // e.g., "2 bd • 2 ba • 920 sqft"
-  badge?: string | null;  // e.g., "Active"
-  imageUrl: string;
-  mls?: string | null;
+  imageUrl?: string | null;
+  title: string;
+  subtitle?: string;
+  priceText?: string;
+  meta?: string[];
+  badge?: string;
 };
 
-function formatPrice(value: number | null | undefined, currency: string | null | undefined) {
-  if (typeof value !== 'number' || !isFinite(value) || value <= 0) return 'Contact for price';
-  const cur = (currency ?? 'CAD').toUpperCase();
-  try {
-    return new Intl.NumberFormat('en-CA', {
-      style: 'currency',
-      currency: cur,
-      maximumFractionDigits: 0,
-    }).format(value);
-  } catch {
-      return `$${value.toLocaleString()}`;
-  }
-}
-
 export function toTemplateProperty(l: DbListing): TemplateProperty {
-  const city = l.municipality ?? l.address?.municipality ?? 'Unknown City';
-  const title = `${city} – ${l.property_type ?? 'Property'}`;
-  const priceText = formatPrice(l.list_price, l.currency);
+  // 1) Price text
+  const priceText =
+    typeof l.list_price === 'number'
+      ? l.list_price.toLocaleString('en-CA', {
+          style: 'currency',
+          currency: 'CAD',  // Hardcode currency here
+          maximumFractionDigits: 0
+        })
+      : 'Price on request';
 
-  const parts: string[] = [];
-  parts.push(`${l.bedrooms ?? '?' } bd`);
-  parts.push(`${l.bathrooms ?? '?' } ba`);
-  if (l.area_sqft) parts.push(`${l.area_sqft.toLocaleString()} sqft`);
+  // 2) Subtitle = city, province
+  const subtitleParts = [l.municipality, l.province].filter(Boolean);
+  const subtitle = subtitleParts.join(', ') || undefined;
+
+  // 3) Meta line: beds · baths · sqft
+  const metaParts: string[] = [];
+  if (l.bedrooms != null) metaParts.push(`${l.bedrooms} bd`);
+  if (l.bathrooms != null) metaParts.push(`${l.bathrooms} ba`);
+  if (l.living_area != null) {
+    metaParts.push(`${l.living_area.toLocaleString()} sqft`);
+  }
+  const meta = metaParts.length ? [metaParts.join(' · ')] : undefined;
+
+  // 4) Badge: property type / subtype
+  const badge = l.property_type ?? l.property_subtype ?? undefined;
+
+  // 5) Title fallback
+  const title =
+    l.address ??
+    (l.mls_number ? `MLS® #${l.mls_number}` : 'Listing');
 
   return {
     id: l.id,
     href: `/listings/${l.id}`,
+    imageUrl: l.main_image_url && l.main_image_url.trim() !== ''
+      ? l.main_image_url
+      : '/placeholder.jpg',
     title,
-    subtitle: l.mls_number ? `MLS® #${l.mls_number}` : undefined,
+    subtitle,
     priceText,
-    meta: parts.join(' • '),
-    badge: l.listing_status,
-    imageUrl: l.main_image_url ?? '/placeholder.jpg',
-    mls: l.mls_number,
+    meta,
+    badge,
   };
 }

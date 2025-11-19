@@ -3,11 +3,11 @@ import Image from 'next/image';
 
 export type PropertyCardProps = {
   href: string;
-  imageUrl: string;
+  imageUrl: string | null;
   title: string;
   subtitle?: string;
   price: string;
-  meta: string;
+  meta?: string[];
   badge?: string | null;
 };
 
@@ -20,13 +20,16 @@ export default function PropertyCard({
   meta,
   badge,
 }: PropertyCardProps) {
+  const safeSrc = imageUrl || '/placeholder.jpg';
+  const metaItems = Array.isArray(meta) ? meta : [];
+
   return (
     <article className="rounded-2xl shadow bg-gray-light overflow-hidden hover:shadow-lg transition">
       <Link href={href} className="block group" prefetch={false}>
         {/* Intrinsic image, sized via CSS only (no fill) */}
         <div className="overflow-hidden">
           <Image
-            src={imageUrl}
+            src={safeSrc}
             alt={title}
             width={1600}
             height={900}
@@ -48,8 +51,8 @@ export default function PropertyCard({
           {subtitle && (
             <p className="mt-1 text-xs text-gray-500">{subtitle}</p>
           )}
-
-          <p className="text-gray-600 text-sm mt-1">{meta}</p>
+          {metaItems.length > 0 && (
+          <p className="text-gray-600 text-sm mt-1">{metaItems.join(' • ')}</p>)}
           <p className="mt-1 font-bold">{price}</p>
         </div>
       </Link>

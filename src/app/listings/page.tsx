@@ -45,10 +45,20 @@ async function fetchListings(filters: {
     .from('listings')
     .select(
       `
-      id, mls_number, property_type, list_price, currency,
-      bedrooms, bathrooms, area_sqft,
-      municipality, province, postal_code,
-      main_image_url, address, listing_status, updated_at
+      id,
+      mls_number,
+      property_type,
+      list_price,
+      bedrooms,
+      bathrooms,
+      living_area,
+      municipality,
+      province,
+      postal_code,
+      main_image_url,
+      address,
+      listing_status,
+      updated_at
       `,
       { count: 'exact' }
     )
@@ -135,7 +145,12 @@ export default async function ListingsPage({
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 mt-2">
           {(listings as DbListing[]).map((l) => {
             const item = toTemplateProperty(l);
-            return <PropertyCardAdapter key={item.id} item={item} />;
+            const key =
+              item.id ||
+              l.mls_number ||
+              l.listing_key ||
+              String(l.id);
+            return <PropertyCardAdapter key={key} item={item} />;
           })}
         </div>
       )}
