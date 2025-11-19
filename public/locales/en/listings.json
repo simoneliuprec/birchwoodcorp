@@ -1,0 +1,35 @@
+{
+  "labels": {
+    "city": "City",
+    "minPrice": "Min price",
+    "maxPrice": "Max price",
+    "beds": "Bedrooms",
+    "baths": "Bathrooms",
+    "type": "Type",
+    "sort": "Sort"
+  },
+  "placeholders": {
+    "city": "e.g. Vancouver",
+    "min": "Min",
+    "max": "Max",
+    "atLeast": "≥"
+  },
+  "types": {
+    "all": "All types",
+    "house": "House",
+    "condo": "Condo",
+    "townhouse": "Townhouse"
+  },
+  "sort": {
+    "newest": "Newest",
+    "priceAsc": "Price ↑",
+    "priceDesc": "Price ↓"
+  },
+  "actions": {
+    "search": "Search",
+    "reset": "Reset"
+  },
+  "errors": {
+    "minGreaterThanMax": "Minimum price cannot be greater than maximum price."
+  }
+}

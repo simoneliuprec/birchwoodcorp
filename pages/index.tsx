@@ -1,5 +1,6 @@
-import { useState } from "react";
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+import nextI18NextConfig from '../next-i18next.config.js';
+import type { GetServerSideProps, GetServerSidePropsContext } from 'next';
 import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
 import Features from "../components/Features";
@@ -7,13 +8,6 @@ import Gallery from "../components/Gallery";
 import Testimonials from "../components/Testimonials";
 import BookMeeting from "../components/BookMeeting";
 import Footer from "../components/Footer";
-
-const navLinks = [
-  { name: "Landing", href: "#" },
-  { name: "Pages", href: "#" },
-  { name: "Contact", href: "#" },
-  { name: "About", href: "#" },
-];
 
 export default function Home() {
   return (
@@ -44,11 +38,26 @@ export default function Home() {
     </div>
   );
 }
-
+/*
 export async function getServerSideProps({ locale }) {
   return {
     props: {
       ...(await serverSideTranslations(locale, ['common'])),
+    },
+  };
+}
+*/
+export const getServerSideProps: GetServerSideProps = async (
+  context: GetServerSidePropsContext
+) => {
+  const { locale } = context;
+  return { 
+    props: {
+      ...(await serverSideTranslations(
+        locale ?? 'en',
+        ['common'],
+        nextI18NextConfig // 👈 pass the config here
+      )),
     },
   };
 }

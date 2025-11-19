@@ -1,0 +1,35 @@
+{
+  "labels": {
+    "city": "城市",
+    "minPrice": "最低价",
+    "maxPrice": "最高价",
+    "beds": "卧室",
+    "baths": "卫浴",
+    "type": "类型",
+    "sort": "排序"
+  },
+  "placeholders": {
+    "city": "例如 Vancouver",
+    "min": "最低",
+    "max": "最高",
+    "atLeast": "≥"
+  },
+  "types": {
+    "all": "全部",
+    "house": "独立屋",
+    "condo": "公寓",
+    "townhouse": "联排"
+  },
+  "sort": {
+    "newest": "最新",
+    "priceAsc": "价格↑",
+    "priceDesc": "价格↓"
+  },
+  "actions": {
+    "search": "搜索",
+    "reset": "重置"
+  },
+  "errors": {
+    "minGreaterThanMax": "最低价不能大于最高价。"
+  }
+}

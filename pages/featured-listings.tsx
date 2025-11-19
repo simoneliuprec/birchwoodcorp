@@ -1,4 +1,10 @@
+import type {
+  GetServerSideProps,
+  GetServerSidePropsContext
+} from 'next';
+// import Head from 'next/head';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+import nextI18NextConfig from '../next-i18next.config.js';
 import FeaturedListings from '../components/FeaturedListings';
 
 export default function FeaturedListingsPage() {
@@ -9,10 +15,18 @@ export default function FeaturedListingsPage() {
   );
 }
 
-export async function getServerSideProps({ locale }) {
+export const getServerSideProps: GetServerSideProps = async (
+  context: GetServerSidePropsContext
+) => {
+  const { locale } = context;
+
   return {
     props: {
-      ...(await serverSideTranslations(locale, ['common'])),
+      ...(await serverSideTranslations(
+        locale ?? 'en',
+        ['common'],
+        nextI18NextConfig
+      )),
     },
   };
-}
+};
